@@ -96,12 +96,6 @@ trello-refactored/
 
 ---
 
-## Screenshots
-
-> Coming soon
-
----
-
 ## License
 
 MIT — feel free to use this project however you like.
