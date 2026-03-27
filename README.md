@@ -2,7 +2,10 @@
 
 A full-stack Trello clone built with the MERN stack. You can create boards, add lists and cards, drag and drop everything, invite teammates, and customize board backgrounds — all in a clean, fully responsive UI.
 
+🔗 **Live Demo:** [trello-refactored.vercel.app](https://trello-refactored.vercel.app)
+
 ---
+
 
 ## Features
 
