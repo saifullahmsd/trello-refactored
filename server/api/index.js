@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Cache DB connection across serverless invocations
+
 let isConnected = false;
 
 const connectDB = async () => {
