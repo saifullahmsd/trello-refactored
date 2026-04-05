@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { DragDropContext, Droppable } from 'react-beautiful-dnd';
 
 import { useGetBoardByIdQuery, useDeleteBoardMutation, useUpdateBoardTitleMutation, useUpdateBoardDescriptionMutation, useUpdateBoardBackgroundMutation } from '../store/api/boardApiSlice';
 import { useGetListsQuery, useCreateListMutation, useReorderListsMutation } from '../store/api/listApiSlice';
-import { useMoveCardMutation } from '../store/api/cardApiSlice';
+import { useGetCardsQuery, useMoveCardMutation } from '../store/api/cardApiSlice';
 
 import List from '../components/List/List';
 import BoardHeader from '../components/Board/Header/BoardHeader';
@@ -20,14 +20,15 @@ const BoardPage = () => {
 
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [editTitle, setEditTitle] = useState('');
+    const [boardDesc, setBoardDesc] = useState('');
     const [cardSearch, setCardSearch] = useState('');
     const [isInviteOpen, setIsInviteOpen] = useState(false);
     const [activityOpen, setActivityOpen] = useState(false);
-    const [boardDesc, setBoardDesc] = useState('');
 
     const { data: board, isLoading: isBoardLoading } = useGetBoardByIdQuery(boardId);
     const [deleteBoard] = useDeleteBoardMutation();
     const { data: lists, isLoading: isListsLoading } = useGetListsQuery(boardId);
+    const { data: cards } = useGetCardsQuery(boardId);
     const [updateBoardTitle] = useUpdateBoardTitleMutation();
     const [updateBoardDescription] = useUpdateBoardDescriptionMutation();
     const [updateBoardBackground] = useUpdateBoardBackgroundMutation();
@@ -36,12 +37,12 @@ const BoardPage = () => {
     const [reorderLists] = useReorderListsMutation();
 
     const [localLists, setLocalLists] = useState([]);
-    // Sync localLists when server data changes (after mutations)
-    useEffect(() => { if (lists) setLocalLists(lists); }, [lists]); // eslint-disable-line
-    // Sync description when board loads
+    const [localCards, setLocalCards] = useState([]);
+
+    useEffect(() => { if (lists) setLocalLists(lists); }, [lists]);
+    useEffect(() => { if (cards) setLocalCards(cards); }, [cards]);
     useEffect(() => { if (board?.description !== undefined) setBoardDesc(board.description); }, [board]); // eslint-disable-line
 
-    // Derive title directly — no separate state needed
     const boardTitle = isEditingTitle ? editTitle : (board?.title || '');
 
     const handleDeleteBoard = async () => {
@@ -63,12 +64,12 @@ const BoardPage = () => {
     };
 
     const handleUpdateBackground = async (bgSelected) => {
-        try { 
-            await updateBoardBackground({ 
-                boardId, 
-                backgroundLink: bgSelected.link, 
-                isImage: bgSelected.isImage 
-            }).unwrap(); 
+        try {
+            await updateBoardBackground({
+                boardId,
+                backgroundLink: bgSelected.link,
+                isImage: bgSelected.isImage
+            }).unwrap();
         }
         catch (err) { console.error('Failed to update background:', err); }
     };
@@ -78,25 +79,43 @@ const BoardPage = () => {
         catch (err) { console.error('Failed to create list', err); }
     };
 
-    const onDragEnd = (result) => {
+    const onDragEnd = useCallback((result) => {
         const { destination, source, draggableId, type } = result;
         if (!destination) return;
         if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
-        // List reorder — optimistic update immediately
+        // LIST REORDER 
         if (type === 'column') {
             const newOrder = Array.from(localLists);
             const [removed] = newOrder.splice(source.index, 1);
             newOrder.splice(destination.index, 0, removed);
             setLocalLists(newOrder);
-            // fire and forget — no await, no re-fetch
             reorderLists({ boardId, listIds: newOrder.map(l => l._id) });
             return;
         }
 
-        // Card move — optimistic local update, fire and forget
-        moveCard({ id: draggableId, destinationListId: destination.droppableId, newOrder: destination.index });
-    };
+        // CARD MOVE 
+        const savedCards = localCards;
+        const updatedCards = localCards.map(card => {
+            if (card._id !== draggableId) return card;
+            return {
+                ...card,
+                list: destination.droppableId,
+                order: destination.index,
+            };
+        });
+        setLocalCards(updatedCards);
+
+
+        moveCard({
+            id: draggableId,
+            destinationListId: destination.droppableId,
+            newOrder: destination.index,
+        }).unwrap().catch(() => {
+            console.error('Failed to move card, restoring...');
+            setLocalCards(savedCards);
+        });
+    }, [localLists, localCards, boardId, reorderLists, moveCard]);
 
     if (isBoardLoading || isListsLoading) return <CircularProgress sx={{ display: 'block', mx: 'auto', mt: 10 }} />;
     if (!board) return <Typography>Board not found</Typography>;
@@ -138,7 +157,14 @@ const BoardPage = () => {
                                 pb: { xs: 2, sm: 0 }
                             }}>
                             {localLists?.map((list, index) => (
-                                <List key={list._id} list={list} boardId={boardId} index={index} cardSearch={cardSearch} />
+                                <List
+                                    key={list._id}
+                                    list={list}
+                                    boardId={boardId}
+                                    index={index}
+                                    cardSearch={cardSearch}
+                                    allCards={localCards}
+                                />
                             ))}
                             {provided.placeholder}
                             <AddListForm onAddList={handleAddList} />

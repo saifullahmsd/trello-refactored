@@ -5,10 +5,10 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import { Droppable, Draggable } from 'react-beautiful-dnd';
 import { useDeleteListMutation, useUpdateListTitleMutation } from '../../store/api/listApiSlice';
-import { useGetCardsQuery, useCreateCardMutation } from '../../store/api/cardApiSlice';
+import { useCreateCardMutation } from '../../store/api/cardApiSlice';
 import CardItem from './CardItem';
 
-const List = ({ list, boardId, index, cardSearch }) => {
+const List = ({ list, boardId, index, cardSearch, allCards = [] }) => {
     const [isAddingCard, setIsAddingCard] = useState(false);
     const [newCardTitle, setNewCardTitle] = useState('');
     const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -18,9 +18,7 @@ const List = ({ list, boardId, index, cardSearch }) => {
     const [createCard] = useCreateCardMutation();
     const [updateListTitle] = useUpdateListTitleMutation();
 
-    const { data: cards = [] } = useGetCardsQuery(boardId);
-
-    const listCards = cards
+    const listCards = allCards
         .filter((card) => card.list === list._id)
         .sort((a, b) => a.order - b.order)
         .filter((card) =>
@@ -105,7 +103,7 @@ const List = ({ list, boardId, index, cardSearch }) => {
                             </IconButton>
                         </Box>
 
-                        <Droppable droppableId={list._id} type="card">
+                        <Droppable droppableId={list._id} type="card" direction="vertical">
                             {(provided, snapshot) => (
                                 <Box
                                     ref={provided.innerRef}
