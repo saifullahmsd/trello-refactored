@@ -35,7 +35,7 @@ export const cardApiSlice = apiSlice.injectEndpoints({
                 method: 'PUT',
                 body: { destinationListId, newOrder },
             }),
-            invalidatesTags: ['Card'],
+            // No invalidatesTags — drag-drop is optimistic, no refetch needed
         }),
         assignMember: builder.mutation({
             query: ({ cardId, userId }) => ({

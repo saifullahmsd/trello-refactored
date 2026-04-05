@@ -35,7 +35,6 @@ export const listApiSlice = apiSlice.injectEndpoints({
                 method: 'PUT',
                 body: { listIds }
             }),
-            invalidatesTags: ['List']
         }),
     }),
 });

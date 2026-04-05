@@ -19,13 +19,13 @@ const BoardPage = () => {
     const navigate = useNavigate();
 
     const [isEditingTitle, setIsEditingTitle] = useState(false);
-    const [boardTitle, setBoardTitle] = useState('');
-    const [boardDesc, setBoardDesc] = useState('');
+    const [editTitle, setEditTitle] = useState('');
     const [cardSearch, setCardSearch] = useState('');
     const [isInviteOpen, setIsInviteOpen] = useState(false);
     const [activityOpen, setActivityOpen] = useState(false);
+    const [boardDesc, setBoardDesc] = useState('');
 
-    const { data: board, isLoading: isBoardLoading } = useGetBoardByIdQuery(boardId, { pollingInterval: 20000 });
+    const { data: board, isLoading: isBoardLoading } = useGetBoardByIdQuery(boardId);
     const [deleteBoard] = useDeleteBoardMutation();
     const { data: lists, isLoading: isListsLoading } = useGetListsQuery(boardId);
     const [updateBoardTitle] = useUpdateBoardTitleMutation();
@@ -36,11 +36,13 @@ const BoardPage = () => {
     const [reorderLists] = useReorderListsMutation();
 
     const [localLists, setLocalLists] = useState([]);
-    useEffect(() => { if (lists) setLocalLists(lists); }, [lists]);
-    useEffect(() => {
-        if (board?.title) setBoardTitle(board.title);
-        if (board?.description !== undefined) setBoardDesc(board.description);
-    }, [board]);
+    // Sync localLists when server data changes (after mutations)
+    useEffect(() => { if (lists) setLocalLists(lists); }, [lists]); // eslint-disable-line
+    // Sync description when board loads
+    useEffect(() => { if (board?.description !== undefined) setBoardDesc(board.description); }, [board]); // eslint-disable-line
+
+    // Derive title directly — no separate state needed
+    const boardTitle = isEditingTitle ? editTitle : (board?.title || '');
 
     const handleDeleteBoard = async () => {
         if (window.confirm('Are you sure you want to delete this board?')) {
@@ -50,8 +52,8 @@ const BoardPage = () => {
     };
 
     const handleUpdateTitle = async () => {
-        if (!boardTitle.trim() || boardTitle === board.title) { setIsEditingTitle(false); return; }
-        try { await updateBoardTitle({ boardId, title: boardTitle }).unwrap(); setIsEditingTitle(false); }
+        if (!editTitle.trim() || editTitle === board.title) { setIsEditingTitle(false); return; }
+        try { await updateBoardTitle({ boardId, title: editTitle }).unwrap(); setIsEditingTitle(false); }
         catch (err) { console.error('Failed to update title:', err); setIsEditingTitle(false); }
     };
 
@@ -76,26 +78,24 @@ const BoardPage = () => {
         catch (err) { console.error('Failed to create list', err); }
     };
 
-    const onDragEnd = async (result) => {
+    const onDragEnd = (result) => {
         const { destination, source, draggableId, type } = result;
         if (!destination) return;
         if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
-        // List reorder
+        // List reorder — optimistic update immediately
         if (type === 'column') {
             const newOrder = Array.from(localLists);
             const [removed] = newOrder.splice(source.index, 1);
             newOrder.splice(destination.index, 0, removed);
             setLocalLists(newOrder);
-            try { await reorderLists({ boardId, listIds: newOrder.map(l => l._id) }).unwrap(); }
-            catch (err) { console.error('Failed to reorder lists:', err); setLocalLists(lists); }
+            // fire and forget — no await, no re-fetch
+            reorderLists({ boardId, listIds: newOrder.map(l => l._id) });
             return;
         }
 
-        // Card move
-        try {
-            await moveCard({ id: draggableId, destinationListId: destination.droppableId, newOrder: destination.index }).unwrap();
-        } catch (error) { console.error('Failed to move card:', error); }
+        // Card move — optimistic local update, fire and forget
+        moveCard({ id: draggableId, destinationListId: destination.droppableId, newOrder: destination.index });
     };
 
     if (isBoardLoading || isListsLoading) return <CircularProgress sx={{ display: 'block', mx: 'auto', mt: 10 }} />;
@@ -113,11 +113,11 @@ const BoardPage = () => {
             overflowY: { xs: 'auto', sm: 'hidden' },
         }}>
             <BoardHeader
-                boardTitle={boardTitle || board.title}
+                boardTitle={boardTitle}
                 isEditingTitle={isEditingTitle}
-                onTitleChange={setBoardTitle}
+                onTitleChange={setEditTitle}
                 onTitleSave={handleUpdateTitle}
-                onTitleEditToggle={setIsEditingTitle}
+                onTitleEditToggle={(val) => { setIsEditingTitle(val); if (val) setEditTitle(board?.title || ''); }}
                 cardSearch={cardSearch}
                 onSearchChange={setCardSearch}
                 onInvite={() => setIsInviteOpen(true)}
