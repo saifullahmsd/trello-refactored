@@ -41,8 +41,23 @@ app.use(morgan("dev", {
 }))
 
 
+app.get("/", (req, res) => {
+    res.status(200).json({
+        status: 'success',
+        message: 'Trello Refactored API',
+        version: '1.0.0',
+        docs: {
+            health: '/api/health',
+            auth: '/api/auth',
+            boards: '/api/boards',
+            lists: '/api/lists',
+            cards: '/api/cards',
+        }
+    });
+});
+
 app.get("/api/health", (req, res) => {
-    res.status(200).json({ status: 'success', message: "Trello clonning api is running" });
+    res.status(200).json({ status: 'success', message: "Trello API is running " });
 });
 
 app.use("/api/auth", authRoutes);

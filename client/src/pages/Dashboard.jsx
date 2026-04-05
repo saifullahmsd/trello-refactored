@@ -46,7 +46,14 @@ const Dashboard = () => {
             {isLoading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress /></Box>
             ) : isError ? (
-                <Typography color="error">Failed to load boards.</Typography>
+                <Box sx={{ textAlign: 'center', mt: 10 }}>
+                    <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                        😕 Could not connect to server
+                    </Typography>
+                    <Typography variant="body2" color="text.disabled">
+                        Please check your internet connection or try again later.
+                    </Typography>
+                </Box>
             ) : (
                 <>
                     <BoardsSection
@@ -56,6 +63,16 @@ const Dashboard = () => {
                         onCreateNew={() => setIsModalOpen(true)}
                         searchQuery={searchQuery}
                     />
+                    {myBoards.length === 0 && memberBoards.length === 0 && !searchQuery && (
+                        <Box sx={{ textAlign: 'center', mt: 6 }}>
+                            <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                                Welcome! You have no boards yet.
+                            </Typography>
+                            <Typography variant="body2" color="text.disabled">
+                                Click "Create new board" above to get started.
+                            </Typography>
+                        </Box>
+                    )}
                     {memberBoards.length > 0 && (
                         <BoardsSection
                             title="Boards You're a Member Of"
